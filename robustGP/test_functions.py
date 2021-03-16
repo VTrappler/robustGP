@@ -11,19 +11,19 @@ This is a python module with some test function, to declutter other scripts
 
 
 def branin_2d(X, damp = 1.0, switch = False):
-        """ Scaled branin function:
-        global minimizers are
-        [0.124, 0.818], [0.54277, 0.1513], [0.96133, 0.16466]
-        """
-        X = np.atleast_2d(X)
-        y, x = X[:, 1], X[:, 0]
-        if switch:
-            x, y = y, x
-        x2 = 15 * y
-        x1 = 15 * x - 5
-        quad = (x2 - (5.1 / (4 * np.pi**2)) * x1**2 + (5 / np.pi) * x1 - 6)**2
-        cosi = (10 - (10 / np.pi * 8)) * np.cos(x1) - 44.81
-        return (quad + cosi) / (51.95 * damp) + 2.0
+    """ Scaled branin function:
+    global minimizers are
+    [0.124, 0.818], [0.54277, 0.1513], [0.96133, 0.16466]
+    """
+    X = np.atleast_2d(X)
+    y, x = X[:, 1], X[:, 0]
+    if switch:
+        x, y = y, x
+    x2 = 15 * y
+    x1 = 15 * x - 5
+    quad = (x2 - (5.1 / (4 * np.pi**2)) * x1**2 + (5 / np.pi) * x1 - 6)**2
+    cosi = (10 - (10 / np.pi * 8)) * np.cos(x1) - 44.81
+    return (quad + cosi) / (51.95 * damp) + 2.0
     # Xmin1 = [0.124, 0.818]
     # Xmin2 = [0.51277, 0.1513]
     # Xmin3 = [0.96133, 0.16466]

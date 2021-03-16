@@ -16,10 +16,10 @@ def expected_improvement(arg, X):
     if isinstance(arg, tuple):
         m, s = arg
     else:
-        m, s = arg.predict(X, return_std=True)
-    with np.errstate(divide="ignore"):
-        EI = s * scipy.stats.norm.pdf(m / s) + m * scipy.stats.norm.cdf(m / s)
-        EI[s < 1e-9] = 0.0
+        m_, s = arg.predict(X, return_std=True)
+        m = arg.y_train_.min() - m_
+    EI = s * scipy.stats.norm.pdf(m / s) + m * scipy.stats.norm.cdf(m / s)
+    EI[s < 1e-14] = 0.0
     return EI
 
 
@@ -35,7 +35,33 @@ def probability_of_improvement(arg, X):
         m, s = arg
     else:
         m, s = arg.predict(X, return_std=True)
-    with np.errstate(divide="ignore"):
-        PI = scipy.stats.norm.cdf(m / s)
-        PI[s < 1e-9] = 0.0
+    PI = scipy.stats.norm.cdf(m / s)
+    PI[s < 1e-9] = 0.0
     return PI
+
+
+# -----------------------------------------------------------------------------
+def quantile_of_m(arg, X, k=0):
+    if isinstance(arg, tuple):
+        m, s = arg
+    else:
+        m, s = arg.predict(X, return_std=True)
+    return m - k * s
+
+
+# -----------------------------------------------------------------------------
+def prediction_variance(arg, X):
+    if isinstance(arg, tuple):
+        m, s = arg
+    else:
+        m, s = arg.predict(X, return_std=True)
+    return s ** 2
+
+
+# -----------------------------------------------------------------------------
+def reliability_index_rho(arg, X, T):
+    if isinstance(arg, tuple):
+        m, s = arg
+    else:
+        m, s = arg.predict(X, return_std=True)
+    return -np.abs(m - T) / s
