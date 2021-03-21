@@ -25,3 +25,5 @@ def add_points_to_design(gp, pts, evals, optimize_cov=False):
         gpp.optimizer = None
     gpp.fit(X, y)
     return gpp
+
+

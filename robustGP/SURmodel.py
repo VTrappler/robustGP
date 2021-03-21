@@ -10,10 +10,11 @@ import matplotlib.pyplot as plt
 import robustGP.acquisition.acquisition as ac
 import robustGP.enrichment.Enrichment as enrich
 import robustGP.optimisers as opt
-from robustGP.tools import pairify
+import robustGP.tools as tools
 from robustGP.gptools import add_points_to_design
 from robustGP.test_functions import branin_2d, rosenbrock_general
 import pyDOE
+from functools import partial
 
 
 class AdaptiveStrategy:
@@ -69,9 +70,31 @@ class AdaptiveStrategy:
                 # opt.append(self.get_global_minimiser().fun)
                 # bestsofar.append(self.get_best_so_far())
 
+    def set_idxU(self, idxU):
+        self.idxU = idxU
+
+    def create_input(self, X2):
+        return partial(tools.construct_input, X2=X2, idx2=self.idxU, product=True)
+
+    def separate_input(self, X):
+        idxK = tools.get_other_indices(self.idxU, X.shape[1])
+        return X[:, idxK], X[:, self.idxU]
+
+    def get_conditional_minimiser(self, u):
+        set_input = self.create_input(u)
+        return opt.optimize_with_restart(
+            lambda X: self.gp.predict(set_input(np.atleast_2d(X).T)),
+            self.bounds[self.idxU],
+        )[2]
+
+    def get_predictor_conditional(self, u):
+        set_input = self.create_input(u)
+        return lambda X1, **kwargs: self.gp.predict(
+            set_input(np.atleast_2d(X1).T), **kwargs
+        )
+
 
 if __name__ == "__main__":
-
     global opt1
 
     def callback_IMSE(admethod, i):
@@ -94,26 +117,6 @@ if __name__ == "__main__":
         plt.savefig(f"/home/victor/robustGP/robustGP/dump/im{i:02d}.png")
         plt.close()
 
-    opt1 = []
-
-    import robustGP.acquisition.acquisition as ac
-
-    plt.subplot(2, 1, 1)
-    plt.contourf(xmg, ymg, ac.probability_coverage(branin.gp, XY, 1.4).reshape(20, 20))
-    plt.subplot(2, 1, 2)
-    plt.contourf(
-        xmg, ymg, ac.margin_indicator(branin.gp, XY, 1.4, 0.05).reshape(20, 20)
-    )
-    ss = sampling_from_indicator(ac.margin_indicator, branin.gp, bounds, 100, 10, T=1.4)
-    plt.scatter(ss[:, 0], ss[:, 1])
-    plt.show()
-
-    from robustGP.sampling.samplers import sampling_from_indicator
-
-    aa = clustering(10, ss)
-    plt.scatter(aa[0][:, 0], aa[0][:, 1])
-    plt.scatter(aa[1].cluster_centers_[:, 0], aa[1].cluster_centers_[:, 1])
-    plt.show()
     # ----------------------------------------------------------------------
     ##   ROSENBROCK
 
@@ -126,7 +129,7 @@ if __name__ == "__main__":
 
     # random_points = np.random.uniform(size=).reshape(3, 5)
     x, y = np.linspace(-5, 5, 20), np.linspace(-5, 5, 20)
-    (XY, (xmg, ymg)) = pairify((x, y))
+    (XY, (xmg, ymg)) = tools.pairify((x, y))
 
     rosen = AdaptiveStrategy(bounds, rosenbrock_general)
 

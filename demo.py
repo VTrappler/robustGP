@@ -35,6 +35,7 @@ def initialize_branin():
         Matern(np.ones(NDIM)),
         n_restarts_optimizer=20,
     )
+    branin.set_idxU([1])
     return branin
 
 
@@ -168,3 +169,19 @@ def callback_AKMCS(admethod, i):
 
 
 branin.run(Niter=5, callback=callback_AKMCS)
+
+
+## PEI_algo
+
+branin = initialize_branin()
+PEI_proc = enrich.OneStepEnrichment(bounds)
+PEI_proc.set_criterion(ac.PEI, maxi=True)  #
+PEI_proc.set_optim(opt.optimize_with_restart, **{"nrestart": 20})
+branin.set_enrichment(PEI_proc)
+opt1 = []
+opt2 = []
+opt3 = []
+import seaborn as sns
+sns.set_theme()
+branin.run(Niter=50, callback=partial(callback_stepwise, prefix="PEI"))
+

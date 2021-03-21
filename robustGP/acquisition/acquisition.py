@@ -4,6 +4,7 @@
 import numpy as np
 import scipy
 import copy
+import robustGP.tools as tools
 
 
 # -----------------------------------------------------------------------------
@@ -21,7 +22,7 @@ def expected_improvement(arg, X):
             m = arg.y_train_.min() - m_
         except AttributeError:
             m = arg.gp.y_train_.min() - m_
-        EI = s * scipy.stats.norm.pdf(m / s) + m * scipy.stats.norm.cdf(m / s)
+    EI = s * scipy.stats.norm.pdf(m / s) + m * scipy.stats.norm.cdf(m / s)
     EI[s < 1e-14] = 0.0
     return EI
 
@@ -119,3 +120,14 @@ def augmented_design(arg, X, scenarios, function_):
             augmented_sc[i] = function_(aug_gp).mean()
         augmented_meas[j] = augmented_sc.mean()
     return augmented_meas
+
+
+def PEI(arg, X):
+    X1, X2 = arg.separate_input(X)
+    PEIvec = np.empty(len(X))
+    for i, (x1, x2) in enumerate(zip(X1, X2)):
+        threshold = np.max([arg.get_best_so_far(), arg.get_conditional_minimiser(x2).fun[0]])
+        cond_pred = arg.get_predictor_conditional(x2)
+        m, s = cond_pred(x1, return_std=True)
+        PEIvec[i] = expected_improvement((threshold - m, s), None)
+    return PEIvec
