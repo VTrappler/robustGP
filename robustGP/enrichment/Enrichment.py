@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
+import robustGP.optimisers as opt
 
 
 class Enrichment:
@@ -12,6 +13,13 @@ class Enrichment:
 
     def run(self, gp):
         pass
+
+
+class InfillEnrichment(Enrichment):
+    def __init__(self, bounds):
+        super(InfillEnrichment, self).__init__(bounds)
+
+    # def set_infill_criterion
 
 
 class OptimEnrichment(Enrichment):
@@ -30,7 +38,7 @@ class OneStepEnrichment(OptimEnrichment):
 
     def set_optim(self, optimiser, **params):
         if optimiser is None:
-            self.optimiser = lambda cr: ac.optimize_with_restart(
+            self.optimiser = lambda cr: opt.optimize_with_restart(
                 cr, self.bounds, **params
             )
         else:
@@ -53,6 +61,39 @@ class TwoStepEnrichment(Enrichment):
     def __init__(self, bounds):
         super(TwoStepEnrichment, self).__init__(bounds)
         self.bounds = bounds
+
+    def set_optim1(self, optimiser, **params):
+        self.optimiser1 = lambda cr: optimiser(cr, **params)
+
+    def set_optim2(self, optimiser, **params):
+        if optimiser is None:
+            self.optimiser2 = lambda cr: opt.optimize_with_restart(
+                cr, self.bounds, **params
+            )
+        else:
+            self.optimiser2 = lambda cr: optimiser(cr, self.bounds, **params)
+
+    def set_criterion_step1(self, criterion, maxi=False, **args):
+        if maxi:
+            self.criterion1 = lambda gp, X: -criterion(gp, X, **args)
+        else:
+            self.criterion1 = lambda gp, X: criterion(gp, X, **args)
+
+    def set_criterion_step2(self, criterion, maxi=False, **args):
+        if maxi:
+            self.criterion2 = lambda gp, X, Xnext: -criterion(gp, X, Xnext, **args)
+        else:
+            self.criterion2 = lambda gp, X, Xnext: criterion(gp, X, Xnext, **args)
+
+    def run_stage1(self, gp):
+        return self.optimiser1(lambda X: self.criterion1(gp, np.atleast_2d(X)))
+
+    def run_stage2(self, gp, Xnext):
+        return self.optimiser2(lambda X: self.criterion2(gp, np.atleast_2d(X), Xnext))
+
+    def run(self, gp):
+        Xnext = self.run_stage1(gp)[0]
+        return self.optimiser2(lambda X: self.criterion2(gp, np.atleast_2d(X), Xnext))
 
 
 class AKMCSEnrichment(Enrichment):

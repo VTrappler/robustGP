@@ -10,11 +10,14 @@ from sklearn.gaussian_process.kernels import Matern
 
 from robustGP.SURmodel import AdaptiveStrategy
 from robustGP.test_functions import branin_2d
-from robustGP.tools import pairify
+import robustGP.tools as tools
 import robustGP.acquisition.acquisition as ac
 import robustGP.enrichment.Enrichment as enrich
 import robustGP.optimisers as opt
 from functools import partial
+import seaborn as sns
+
+sns.set_theme()
 
 
 # Initialisation of the problem
@@ -43,7 +46,7 @@ bounds = np.asarray([[0, 1], [0, 1]])
 branin = initialize_branin()
 # For plots
 x, y = np.linspace(0, 1, 20), np.linspace(0, 1, 20)
-(XY, (xmg, ymg)) = pairify((x, y))
+(XY, (xmg, ymg)) = tools.pairify((x, y))
 
 global opt1
 global opt2
@@ -84,7 +87,7 @@ def callback_stepwise(admethod, i, minimum=0.839753, prefix=""):
     plt.close()
 
 
-## Exploration
+### Exploration
 # Maximum of prediction variance
 branin = initialize_branin()
 pred_var = enrich.OneStepEnrichment(bounds)
@@ -94,7 +97,9 @@ branin.set_enrichment(pred_var)
 opt1 = []
 opt2 = []
 opt3 = []
-branin.run(Niter=50, callback=lambda ad, i: callback_stepwise(ad, i, prefix="predvar"))
+branin.run(
+    Niter=50, callback=None
+)  # lambda ad, i: callback_stepwise(ad, i, prefix="predvar"))
 
 # reduction of the augmented IMSE
 branin = initialize_branin()
@@ -109,6 +114,11 @@ opt1 = []
 opt2 = []
 opt3 = []
 branin.run(Niter=25, callback=partial(callback_stepwise, prefix="augIMSE"))
+
+# Infill criterion
+infill_sobol = enrich.OneStepEnrichment(bounds)
+infill_sobol.set_criterion()
+infill_sobol.set_optim()
 
 
 ## Optimisation
@@ -133,6 +143,20 @@ reliability.set_optim(opt.optimize_with_restart, **{"nrestart": 20})
 branin.set_enrichment(reliability)
 opt1, opt2, opt3 = [], [], []
 branin.run(Niter=50, callback=partial(callback_stepwise, prefix="rho"))
+
+branin = initialize_branin()
+augIVPC = enrich.OneStepEnrichment(bounds)
+augIVPC.set_criterion(
+    ac.augmented_IVPC,
+    scenarios=None,
+    maxi=True,
+    integration_points=pyDOE.lhs(2, 100),
+    T=1.3,
+)  #
+augIVPC.set_optim(opt.optimize_with_restart, **{"nrestart": 20})
+branin.set_enrichment(augIVPC)
+branin.run(Niter=50, callback=partial(callback_stepwise, prefix="augIVPCmaxi"))
+
 
 # AK-MCS
 import robustGP.sampling.samplers as sam
@@ -173,15 +197,129 @@ branin.run(Niter=5, callback=callback_AKMCS)
 
 ## PEI_algo
 
-branin = initialize_branin()
-PEI_proc = enrich.OneStepEnrichment(bounds)
-PEI_proc.set_criterion(ac.PEI, maxi=True)  #
-PEI_proc.set_optim(opt.optimize_with_restart, **{"nrestart": 20})
-branin.set_enrichment(PEI_proc)
-opt1 = []
-opt2 = []
-opt3 = []
-import seaborn as sns
-sns.set_theme()
-branin.run(Niter=50, callback=partial(callback_stepwise, prefix="PEI"))
 
+def callback_PEI(admethod, i):
+    ax1 = plt.subplot(2, 2, 1)
+    ax1.set_title(r"Prediction $m_Z$")
+    ax1.contourf(xmg, ymg, admethod.predict(XY).reshape(20, 20))
+    ax1.scatter(admethod.gp.X_train_[:-1, 0], admethod.gp.X_train_[:-1, 1], c="b")
+    ax1.scatter(admethod.gp.X_train_[-1, 0], admethod.gp.X_train_[-1, 1], c="r")
+    ax1.set_aspect("equal")
+    ax2 = plt.subplot(2, 2, 2)
+    ax2.contourf(
+        xmg, ymg, -(admethod.enrichment.criterion(admethod, XY).reshape(20, 20))
+    )
+    ax2.set_aspect("equal")
+    ax2.set_title("Criterion")
+
+    Jpred = branin.predict(XYl).reshape(500, 500)
+    theta_star_hat = xl[Jpred.argmin(0)]
+    mstar, sstar = branin.predict(np.vstack([theta_star_hat, yl]).T, return_std=True)
+    ax1.plot(theta_star_hat, yl, ".")
+
+    diff = mstar - Jtrue.min(0)
+    L2_error.append(np.sum(diff ** 2))
+    ax3 = plt.subplot(2, 2, 3)
+    ax3.plot(L2_error)
+    ax3.set_title(r"L2 error on $J^*$")
+    ax3.set_yscale("log")
+
+    ax4 = plt.subplot(2, 2, 4)
+    ax4.plot(yl, mstar, label="GP")
+    ax4.fill_between(yl, mstar + sstar, mstar - sstar, color="lightgray", alpha=0.7)
+    ax4.plot(yl, Jtrue.min(0), label="truth")
+    ax4.set_title(r"Prediction of $J^*$")
+    ax4.legend()
+
+    plt.tight_layout()
+    plt.savefig(f"/home/victor/robustGP/robustGP/dump/PEIpredvar_{i:02d}.png")
+    plt.close()
+
+
+L2_total_predvar = np.empty((50, 0))
+
+for _ in range(10):
+    xl, yl = np.linspace(0, 1, 500), np.linspace(0, 1, 500)
+    (XYl, (xmgl, ymgl)) = tools.pairify((xl, yl))
+    Jtrue = branin.function(XYl).reshape(500, 500)
+    branin = initialize_branin()
+    pred_var = enrich.OneStepEnrichment(bounds)
+    pred_var.set_criterion(ac.prediction_variance, maxi=True)  #
+    pred_var.set_optim(opt.optimize_with_restart, **{"nrestart": 20})
+    branin.set_enrichment(pred_var)
+
+    # PEI_proc = enrich.OneStepEnrichment(bounds)
+    # PEI_proc.set_criterion(ac.PEI, maxi=True)  #
+    # PEI_proc.set_optim(opt.optimize_with_restart, **{"nrestart": 10})
+    # branin.set_enrichment(PEI_proc)
+
+    global L2_error
+    L2_error = []
+    branin.run(Niter=50, callback=callback_PEI)
+
+    # L2_total_predvar = np.empty((50, 0))
+    L2_total_predvar = np.c_[L2_total_predvar, L2_error]
+
+plt.plot(L2_total, color="k", alpha=0.2)
+plt.plot(L2_total.mean(1))
+plt.plot(L2_total_predvar, color="k", alpha=0.2)
+plt.plot(L2_total_predvar.mean(1))
+plt.yscale("log")
+plt.show()
+
+intU = pyDOE.lhs(1, 200)
+bounds = np.asarray([[0, 1], [0, 1]])
+branin = initialize_branin()
+x1 = np.linspace(0, 1, 100)
+# plt.subplot(2, 2, (1, 3))
+# plt.contourf(xmg, ymg, branin.predict(XY).reshape(20, 20))
+# plt.subplot(2, 2, 2)
+# m, c = predict_meanGP(branin, intU)(np.atleast_2d(x1), return_cov=True)
+# plt.plot(m)
+# plt.plot(m + np.sqrt(c))
+# plt.plot(m - np.sqrt(c))
+# plt.subplot(2, 2, 4)
+# plt.plot(projected_EI(branin, x1, intU))
+# plt.tight_layout()
+# plt.show()
+
+
+EIVAR = enrich.TwoStepEnrichment(bounds)
+EIVAR.set_optim1(opt.optimize_with_restart, bounds=np.atleast_2d(branin.bounds[0]))
+EIVAR.set_optim2(opt.optimize_with_restart)
+EIVAR.set_criterion_step1(ac.projected_EI, maxi=True, intU=intU)
+EIVAR.set_criterion_step2(ac.augmented_VAR, maxi=True, intU=intU)
+branin.set_enrichment(EIVAR)
+
+
+def callback_EIVAR(admethod, i):
+    ax1 = plt.subplot(2, 2, 1)
+    ax1.set_title(r"Prediction $m_Z$")
+    ax1.contourf(xmg, ymg, admethod.predict(XY).reshape(20, 20))
+    ax1.scatter(admethod.gp.X_train_[:-1, 0], admethod.gp.X_train_[:-1, 1], c="b")
+    ax1.scatter(admethod.gp.X_train_[-1, 0], admethod.gp.X_train_[-1, 1], c="r")
+    ax1.set_aspect("equal")
+    ax2 = plt.subplot(2, 2, 4)
+    Xnext = admethod.enrichment.run_stage1(admethod)[0]
+    ax2.contourf(
+        xmg, ymg, -(admethod.enrichment.criterion2(admethod, XY, Xnext).reshape(20, 20))
+    )
+    ax2.set_aspect("equal")
+    ax2.set_title("Augmented Var")
+    ax3 = plt.subplot(2, 2, 2)
+    m, c = ac.predict_meanGP(admethod, intU)(np.atleast_2d(x1), return_cov=True)
+    c = ac.predvar_meanGP(admethod, intU)(np.atleast_2d(x1))
+    ax3.plot(x1, m, "k")
+    ax3.plot(x1, m + np.sqrt(c), color="k")
+    ax3.plot(x1, m - np.sqrt(c), "k")
+    ax3.set_title(r"Projected process")
+    # ax3bis.plot(x1, c)
+    ax4 = plt.subplot(2, 2, 3)
+    ax4.plot(ac.projected_EI(admethod, x1, intU))
+    ax4.set_title(r"Projected EI")
+    plt.tight_layout()
+    plt.savefig(f"/home/victor/robustGP/robustGP/dump/EIVAR2_stepwise{i:02d}.png")
+    plt.close()
+
+
+branin.run(Niter=50, callback=callback_EIVAR)

@@ -11,10 +11,12 @@ import robustGP.acquisition.acquisition as ac
 import robustGP.enrichment.Enrichment as enrich
 import robustGP.optimisers as opt
 import robustGP.tools as tools
-from robustGP.gptools import add_points_to_design
+from robustGP.gptools import add_points_to_design, m_s_delta, m_s_delta_product, m_s_Xi
 from robustGP.test_functions import branin_2d, rosenbrock_general
 import pyDOE
 from functools import partial
+from tqdm import tqdm, trange
+import copy
 
 
 class AdaptiveStrategy:
@@ -39,7 +41,9 @@ class AdaptiveStrategy:
         self.gp = add_points_to_design(self.gp, pts, self.function(pts), optimize_cov)
 
     def augmented_GP(self, pt, z, optimize_cov=False):
-        return add_points_to_design(self.gp, pt, z, optimize_cov)
+        self_ = copy.copy(self)
+        self_.gp = add_points_to_design(self.gp, pt, z, optimize_cov)
+        return self_
 
     def set_enrichment(self, EnrichmentStrategy):
         self.enrichment = EnrichmentStrategy
@@ -62,29 +66,34 @@ class AdaptiveStrategy:
         # except KeyboardInterrupt:
 
     def run(self, Niter, callback=None):
-        for i in range(Niter):
-            print(self.gp.kernel_)
+        for i in trange(Niter):
             self.step()
             if callable(callback):
                 callback(self, i)
                 # opt.append(self.get_global_minimiser().fun)
                 # bestsofar.append(self.get_best_so_far())
 
-    def set_idxU(self, idxU):
+    def set_idxU(self, idxU, ndim=None):
         self.idxU = idxU
+        if ndim is not None:
+            self.idxK = tools.get_other_indices(self.idxU, ndim)
 
     def create_input(self, X2):
         return partial(tools.construct_input, X2=X2, idx2=self.idxU, product=True)
 
     def separate_input(self, X):
-        idxK = tools.get_other_indices(self.idxU, X.shape[1])
-        return X[:, idxK], X[:, self.idxU]
+        try:
+            return X[:, self.idxK], X[:, self.idxU]
+        except AttributeError:
+            self.idxK = tools.get_other_indices(self.idxU, X.shape[1])
+            return X[:, self.idxK], X[:, self.idxU]
 
     def get_conditional_minimiser(self, u):
         set_input = self.create_input(u)
         return opt.optimize_with_restart(
             lambda X: self.gp.predict(set_input(np.atleast_2d(X).T)),
-            self.bounds[self.idxU],
+            self.bounds[self.idxK],
+            10,
         )[2]
 
     def get_predictor_conditional(self, u):
@@ -92,6 +101,12 @@ class AdaptiveStrategy:
         return lambda X1, **kwargs: self.gp.predict(
             set_input(np.atleast_2d(X1).T), **kwargs
         )
+
+    def predict_GPdelta(self, X, alpha, beta=0):
+        return m_s_delta(self, X=X, alpha=alpha, beta=beta)
+
+    def predict_GPdelta_product(self, X1, X2, alpha, beta=0):
+        return m_s_delta_product(self, X1, X2, idx2=self.idxU, alpha=alpha, beta=beta)
 
 
 if __name__ == "__main__":
