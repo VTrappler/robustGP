@@ -142,3 +142,12 @@ def m_s_Xi(arg, X):
         )
         # m, s = cond_pred(x1, return_std=True)
     return mu, var
+
+
+def rm_obs_gp(gp, ninitial, n_added):
+    gp_rm = copy.copy(gp)
+    N = ninitial + n_added
+    X_train_ = gp.X_train_[:N]
+    y_train_ = gp.y_train_[:N]
+    gp_rm.fit(X_train_, y_train_)
+    return gp_rm

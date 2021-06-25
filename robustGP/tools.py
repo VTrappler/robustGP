@@ -4,6 +4,7 @@
 import numpy as np
 import itertools
 
+
 def pairify(vectors):
     """meshgrid generation and combinations of vectors
 

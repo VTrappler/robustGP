@@ -42,7 +42,7 @@ class OneStepEnrichment(OptimEnrichment):
                 cr, self.bounds, **params
             )
         else:
-            self.optimiser = lambda cr: optimiser(cr, self.bounds, **params)
+            self.optimiser = lambda cr: optimiser(cr, **params)
 
     def set_criterion(self, criterion, maxi=False, **args):
         if maxi:

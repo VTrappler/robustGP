@@ -59,7 +59,8 @@ class AdaptiveStrategy:
     def step(self):
         # try:
         # Acquisition step
-        pts, _, _ = self.enrichment.run(self)
+        acq = self.enrichment.run(self)
+        pts = acq[0]
         # Evaluation step
         self.add_points(pts, optimize_cov=True)
 
