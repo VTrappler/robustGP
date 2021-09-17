@@ -11,7 +11,8 @@ import robustGP.acquisition.acquisition as ac
 import robustGP.enrichment.Enrichment as enrich
 import robustGP.optimisers as opt
 import robustGP.tools as tools
-from robustGP.gptools import add_points_to_design, m_s_delta, m_s_delta_product, m_s_Xi
+from robustGP.gptools import (add_points_to_design, m_s_delta, m_s_delta_product,
+                              m_s_Xi)
 from robustGP.test_functions import branin_2d, rosenbrock_general
 import pyDOE
 from functools import partial
@@ -21,6 +22,19 @@ import copy
 
 class AdaptiveStrategy:
     def __init__(self, bounds, function):
+        """
+        Initialise an instance of an adaptive strategy
+        Parameters
+        ----------
+        bounds : Bounds of the joint space KxU
+        function : True function to be evaluated
+
+        Returns
+        -------
+        out : None
+
+        """
+
         self.bounds = bounds
         self.function = function
         self.gp = None
