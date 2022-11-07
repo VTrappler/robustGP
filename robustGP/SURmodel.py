@@ -11,8 +11,7 @@ import robustGP.acquisition.acquisition as ac
 import robustGP.enrichment.Enrichment as enrich
 import robustGP.optimisers as opt
 import robustGP.tools as tools
-from robustGP.gptools import (add_points_to_design, m_s_delta, m_s_delta_product,
-                              m_s_Xi)
+from robustGP.gptools import add_points_to_design, m_s_delta, m_s_delta_product, m_s_Xi
 from robustGP.test_functions import branin_2d, rosenbrock_general
 import pyDOE
 from functools import partial
@@ -38,6 +37,7 @@ class AdaptiveStrategy:
         self.bounds = bounds
         self.function = function
         self.gp = None
+        self.diagnostic = []
 
     def fit_gp(self, design, response, kernel, n_restarts_optimizer):
         self.gp = GaussianProcessRegressor(
@@ -81,12 +81,16 @@ class AdaptiveStrategy:
         # except KeyboardInterrupt:
 
     def run(self, Niter, callback=None):
+        run_diag = []
         for i in trange(Niter):
             self.step()
             if callable(callback):
-                callback(self, i)
+                diag = callback(self, i)
+                run_diag.append(diag)
                 # opt.append(self.get_global_minimiser().fun)
                 # bestsofar.append(self.get_best_so_far())
+        self.diagnostic.append(run_diag)
+        return run_diag
 
     def set_idxU(self, idxU, ndim=None):
         self.idxU = idxU

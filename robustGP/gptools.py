@@ -144,9 +144,16 @@ def m_s_Xi(arg, X):
     return mu, var
 
 
-def rm_obs_gp(gp, ninitial, n_added):
+def rm_obs_gp(gp, n0, n_added):
+    """
+    Return the gp fitted on the ninitial + n_added points
+    :param gp: GaussianProcessRegressor
+    :param n0: number of points in the initial design
+    :param n_added: number of points added in addition to the initial design
+    :returns: GaussianProcessRegressor
+    """
     gp_rm = copy.copy(gp)
-    N = ninitial + n_added
+    N = n0 + n_added
     X_train_ = gp.X_train_[:N]
     y_train_ = gp.y_train_[:N]
     gp_rm.fit(X_train_, y_train_)
