@@ -4,6 +4,7 @@
 import numpy as np
 import robustGP.optimisers as opt
 
+import scipy.stats
 
 class Enrichment:
     """Documentation for Enrichment"""
@@ -20,6 +21,16 @@ class InfillEnrichment(Enrichment):
         super(InfillEnrichment, self).__init__(bounds)
 
     # def set_infill_criterion
+
+class MonteCarloEnrich(InfillEnrichment):
+    def __init__(self, dim, bounds, sampler):
+        super(MonteCarloEnrich, self).__init__(bounds)
+        self.sampler = sampler
+        self.dim = dim
+
+    def run(self, gp):
+        return scipy.stats.uniform.rvs(size=(1, self.dim)), "MC"
+
 
 
 class OptimEnrichment(Enrichment):

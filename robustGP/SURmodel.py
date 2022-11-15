@@ -3,6 +3,7 @@
 
 from typing import Callable, List, Tuple
 import numpy as np
+import pickle
 
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import Matern
@@ -39,6 +40,11 @@ class AdaptiveStrategy:
         self.function = function
         self.gp = None
         self.diagnostic = []
+
+    def save_gp_diag(self, diag, filename):
+        to_save_dict = {"AdaptiveStrat": self.gp, "diag": diag}
+        with open(filename, "wb") as open_file:
+            pickle.dump(to_save_dict, open_file)
 
     def fit_gp(
         self,
@@ -143,10 +149,13 @@ class AdaptiveStrategy:
         """Performs the acquisition step defined as self.enrichment, and add point to the design"""
         # try:
         # Acquisition step
-        acq = self.enrichment.run(self)
-        pts = acq[0]
-        # Evaluation step
-        self.add_points(pts, optimize_cov=True)
+        with tqdm(total=3, leave=False) as pbar:
+            pbar.set_description("Acquisition")
+            acq = self.enrichment.run(self)
+            pts = acq[0]
+            pbar.update(1)
+            # Evaluation step
+            self.add_points(pts, optimize_cov=True)
 
         # except KeyboardInterrupt:
 
@@ -162,13 +171,24 @@ class AdaptiveStrategy:
         """
         run_diag = []
         for i in trange(Niter):
-            self.step()
-            if callable(callback):
-                diag = callback(self, i)
-                run_diag.append(diag)
-                # opt.append(self.get_global_minimiser().fun)
-                # bestsofar.append(self.get_best_so_far())
-        self.diagnostic.append(run_diag)
+            with tqdm(leave=False) as pbar:
+                pbar.set_description("Acquisition")
+                acq = self.enrichment.run(self)
+                pts = acq[0]
+                pbar.update(1)
+                # Evaluation step
+                pbar.set_description("Evaluate and add point to design")
+                self.add_points(pts, optimize_cov=True)
+                pbar.update(2)
+                # self.step()
+                pbar.set_description("Callback")
+                if callable(callback):
+                    diag = callback(self, i)
+                    run_diag.append(diag)
+                    # opt.append(self.get_global_minimiser().fun)
+                    # bestsofar.append(self.get_best_so_far())
+                self.diagnostic.append(run_diag)
+                pbar.update(3)
         return run_diag
 
     def set_idxU(self, idxU: List, ndim: int = None) -> None:

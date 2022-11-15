@@ -44,9 +44,9 @@ graphics_folder = "/home/victor/collab_article/adaptive/figures/"
 
 bounds = np.asarray([[0, 1], [0, 1]])
 # For plots
-x, y = np.linspace(0, 1, 2 ** 5), np.linspace(0, 1, 2 ** 5)
+x, y = np.linspace(0, 1, 2**5), np.linspace(0, 1, 2**5)
 (XY, (xmg, ymg)) = tools.pairify((x, y))
-xl, yl = np.linspace(0, 1, 2 ** 6), np.linspace(0, 1, 2 ** 6)
+xl, yl = np.linspace(0, 1, 2**6), np.linspace(0, 1, 2**6)
 (XYl, (xmgl, ymgl)) = tools.pairify((xl, yl))
 
 
@@ -90,7 +90,7 @@ def callback(arg, i, filename):
     plt.tight_layout()
     plt.savefig(fname)
     plt.close()
-    return (np.sum(s ** 2), np.sum(sdel ** 2))
+    return (np.sum(s**2), np.sum(sdel**2))
 
 
 ## Sobol sequence
@@ -132,19 +132,10 @@ result_dictionary = {"halton": halton_dict}
 ## Monte Carlo
 
 
-class MonteCarloEnrich(enrich.InfillEnrichment):
-    def __init__(self, bounds, sampler):
-        super(MonteCarloEnrich, self).__init__(bounds)
-        self.sampler = sampler
-
-    def run(self, gp):
-        return scipy.stats.uniform.rvs(size=(1, 2)), "MC"
-
-
 initial_design = scipy.stats.uniform.rvs(size=(10, 2))
 for i in range(1, 5):
     branin_MC = initialize_branin(initial_design=initial_design)
-    montecarlo_enrich = MonteCarloEnrich(bounds, None)
+    montecarlo_enrich = enrich.MonteCarloEnrich(dim=2, bounds=bounds, sampler=None)
     branin_MC.set_enrichment(montecarlo_enrich)
 
     run_diag = branin_MC.run(Niter=50, callback=partial(callback, filename=fname("MC")))
@@ -219,7 +210,7 @@ def aIMSE_experiment(Niter, filename):
 
         def function_(arg):
             m, sd = arg.predict(int_points, return_std=True)
-            return sd ** 2
+            return sd**2
 
         return ac.augmented_design(arg, X, scenarios, function_, {})
 
@@ -306,10 +297,6 @@ plt.show()
 import pickle
 
 
-def save_gp_diag(sur_obj, diag, filename):
-    to_save_dict = {"AdaptiveStrat": sur_obj.gp, "diag": diag}
-    with open(filename, "wb") as open_file:
-        pickle.dump(to_save_dict, open_file)
 
 
 aIMSE_diags = {"imse": imse_aIMSE, "imse_delta": imse_del_aIMSE}
