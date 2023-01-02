@@ -19,10 +19,15 @@ import pyDOE
 from functools import partial
 from tqdm import tqdm, trange
 import copy
+import os
+
+log_folder = "/home/victor/robustGP/logs"
 
 
 class AdaptiveStrategy:
-    def __init__(self, bounds, function: Callable[[np.ndarray], np.ndarray]):
+    def __init__(
+        self, bounds, function: Callable[[np.ndarray], np.ndarray], name="blank"
+    ):
         """
         Initialise an instance of an adaptive strategy
         Parameters
@@ -39,6 +44,7 @@ class AdaptiveStrategy:
         self.bounds = bounds
         self.function = function
         self.gp = None
+        self.name = name
         self.diagnostic = []
 
     def save_gp_diag(self, diag, filename):
@@ -149,13 +155,16 @@ class AdaptiveStrategy:
         """Performs the acquisition step defined as self.enrichment, and add point to the design"""
         # try:
         # Acquisition step
-        with tqdm(total=3, leave=False) as pbar:
-            pbar.set_description("Acquisition")
-            acq = self.enrichment.run(self)
-            pts = acq[0]
-            pbar.update(1)
-            # Evaluation step
-            self.add_points(pts, optimize_cov=True)
+        # with tqdm(total=3, leave=False) as pbar:
+        #     pbar.set_description("Acquisition")
+        #     acq = self.enrichment.run(self)
+        #     pts = acq[0]
+        #     pbar.update(1)
+        #     # Evaluation step
+        #     self.add_points(pts, optimize_cov=True)
+        acq = self.enrichment.run(self)
+        pts = acq[0]
+        self.add_points(pts, optimize_cov=True)
 
         # except KeyboardInterrupt:
 
@@ -171,24 +180,25 @@ class AdaptiveStrategy:
         """
         run_diag = []
         for i in trange(Niter):
-            with tqdm(leave=False) as pbar:
-                pbar.set_description("Acquisition")
+            # with tqdm(total=3, leave=False) as pbar:
+            if True:
+                # pbar.set_description("Acquisition")
                 acq = self.enrichment.run(self)
                 pts = acq[0]
-                pbar.update(1)
+                # pbar.update(1)
                 # Evaluation step
-                pbar.set_description("Evaluate and add point to design")
+                # pbar.set_description("Evaluate and add point to design")
                 self.add_points(pts, optimize_cov=True)
-                pbar.update(2)
+                # pbar.update(2)
                 # self.step()
-                pbar.set_description("Callback")
+                # pbar.set_description("Callback")
                 if callable(callback):
                     diag = callback(self, i)
                     run_diag.append(diag)
                     # opt.append(self.get_global_minimiser().fun)
                     # bestsofar.append(self.get_best_so_far())
                 self.diagnostic.append(run_diag)
-                pbar.update(3)
+                # pbar.update(3)
         return run_diag
 
     def set_idxU(self, idxU: List, ndim: int = None) -> None:
@@ -230,7 +240,7 @@ class AdaptiveStrategy:
     def get_conditional_minimiser(self, u: np.ndarray):
         set_input = self.create_input(u)
         return opt.optimize_with_restart(
-            lambda X: self.gp.predict(set_input(np.atleast_2d(X).T)),
+            lambda X: self.gp.predict(set_input(np.atleast_2d(X))),
             self.bounds[self.idxK],
             10,
         )[2]
@@ -238,7 +248,7 @@ class AdaptiveStrategy:
     def get_conditional_minimiser_true(self, u: np.ndarray):
         set_input = self.create_input(u)
         return opt.optimize_with_restart(
-            lambda X: self.evaluate_function(set_input(np.atleast_2d(X).T)),
+            lambda X: self.evaluate_function(set_input(np.atleast_2d(X))),
             self.bounds[self.idxK],
             10,
         )[2]
@@ -258,6 +268,29 @@ class AdaptiveStrategy:
         self, X1: np.ndarray, X2: np.ndarray, alpha: float, beta: float = 0.0
     ) -> Tuple[np.ndarray, np.ndarray]:
         return m_s_delta_product(self, X1, X2, idx2=self.idxU, alpha=alpha, beta=beta)
+
+    def save_design(self, last=True):
+        X = self.gp.X_train_
+        y = self.gp.y_train_
+        if not last:
+            to_write = np.hstack((X, y.reshape(len(y), 1)))
+            np.savetxt(
+                os.path.join(
+                    log_folder,
+                    f"{self.name}_design.txt",
+                ),
+                to_write,
+            )
+        else:
+            to_write = np.hstack((X[-1].reshape(1, len(X[-1])), y[-1].reshape(1, 1)))
+            with open(
+                os.path.join(
+                    log_folder,
+                    f"{self.name}_design.txt",
+                ),
+                "a",
+            ) as design_file:
+                np.savetxt(design_file, to_write)
 
 
 if __name__ == "__main__":
