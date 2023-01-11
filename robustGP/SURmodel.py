@@ -171,8 +171,6 @@ class AdaptiveStrategy:
         pts = acq[0]
         self.add_points(pts, optimize_cov=True)
 
-        # except KeyboardInterrupt:
-
     def run(self, Niter: int, callback=None) -> List:
         """Run the enrichment strategy for Niter steps
 

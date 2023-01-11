@@ -207,17 +207,24 @@ if __name__ == "__main__":
     parser.add_argument(
         "--offset", default=0, type=int, help="offset for experiment number"
     )
+    parser.add_argument(
+        "--name", default=None, type=str, help="Name to use for experiment"
+    )
     parsed_args = parser.parse_args()
-    name = parsed_args.experience
+    exp = parsed_args.experience
+    if parsed_args.name is None:
+        name = exp
+    else:
+        name = parsed_args.name
 
     for i in range(parsed_args.reps):
         if parsed_args.reps > 1:
             filename = name + f"_{i+parsed_args.offset}"
         else:
             filename = name
-        if name == "MC":
+        if exp == "MC":
             monte_carlo_exp(parsed_args.Niter, filename)
-        elif name == "maxvar":
+        elif exp == "maxvar":
             maxvar_exp(parsed_args.Niter, filename)
-        elif name == "aIMSE":
+        elif exp == "aIMSE":
             augmented_IMSE_delta_exp(parsed_args.Niter, filename)

@@ -6,6 +6,7 @@ import robustGP.optimisers as opt
 
 import scipy.stats
 
+
 class Enrichment:
     """Documentation for Enrichment"""
 
@@ -22,6 +23,7 @@ class InfillEnrichment(Enrichment):
 
     # def set_infill_criterion
 
+
 class MonteCarloEnrich(InfillEnrichment):
     def __init__(self, dim, bounds, sampler):
         super(MonteCarloEnrich, self).__init__(bounds)
@@ -30,7 +32,6 @@ class MonteCarloEnrich(InfillEnrichment):
 
     def run(self, gp):
         return scipy.stats.uniform.rvs(size=(1, self.dim)), "MC"
-
 
 
 class OptimEnrichment(Enrichment):
@@ -46,6 +47,7 @@ class OneStepEnrichment(OptimEnrichment):
 
     def __init__(self, bounds):
         super(OneStepEnrichment, self).__init__(bounds)
+        self.set_optim(None)
 
     def set_optim(self, optimiser, **params):
         if optimiser is None:

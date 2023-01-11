@@ -6,6 +6,7 @@ import scipy
 import copy
 import robustGP.tools as tools
 import robustGP.optimisers as opt
+import tqdm
 
 
 # -----------------------------------------------------------------------------
@@ -60,7 +61,7 @@ def prediction_variance(arg, X):
         m, s = arg
     else:
         m, s = arg.predict(X, return_std=True)
-    return s ** 2
+    return s**2
 
 
 # -----------------------------------------------------------------------------
@@ -111,7 +112,7 @@ def augmented_IMSE(arg, X, scenarios, integration_points):
     return aIMSE
 
 
-def augmented_design(arg, X, scenarios, function_, args):
+def augmented_design(arg, X, scenarios, function_, args, verbose=False):
     if isinstance(arg, tuple):
         m, s = arg
     else:
