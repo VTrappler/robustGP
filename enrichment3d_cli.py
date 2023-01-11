@@ -59,20 +59,20 @@ def initialize_function(function, NDIM, idxU=[2], name=None, initial_design=None
 
 bounds = np.asarray([(0, 1)] * NDIM)
 # For plots
-npts = 2 ** 3
+npts = 2**3
 x, y, z = np.linspace(0, 1, npts), np.linspace(0, 1, npts), np.linspace(0, 1, npts)
 (XYZ, (xmg, ymg, zmg)) = tools.pairify((x, y, z))
 XYZ = np.concatenate(
     [XYZ, pyDOE.lhs(3, samples=88, criterion="maximin", iterations=50)]
 )
-xl, yl = np.linspace(0, 1, 2 ** 6), np.linspace(0, 1, 2 ** 6)
+xl, yl = np.linspace(0, 1, 2**6), np.linspace(0, 1, 2**6)
 (XYl, (xmgl, ymgl)) = tools.pairify((xl, yl))
 Niter = 50
 
-hartmann = initialize_function(hartmann_3d, 3, idxU=[2], name="test")
-branin = initialize_function(branin_2d, 2, idxU=[1])
+# hartmann = initialize_function(hartmann_3d, 3, idxU=[2], name="test")
+# branin = initialize_function(branin_2d, 2, idxU=[1])
 
-log_folder = "/home/victor/robustGP/logs/"
+log_folder = os.path.join(os.getcwd(), "logs")
 
 
 def callback(arg, i, freq_log=2, filename=None):
@@ -84,7 +84,7 @@ def callback(arg, i, freq_log=2, filename=None):
     if i % freq_log == 0:
         mdel, sdel = arg.predict_GPdelta(XYZ, alpha=2)
         m, s = arg.predict(XYZ, return_std=True)
-        to_write = (np.sum(s ** 2), np.sum(sdel ** 2))
+        to_write = (np.sum(s**2), np.sum(sdel**2))
     else:
         to_write = np.nan, np.nan
     with open(

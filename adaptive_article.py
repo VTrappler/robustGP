@@ -6,6 +6,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy
+import pickle
 import dill
 
 from matplotlib import cm
@@ -24,19 +25,19 @@ import robustGP.enrichment.Enrichment as enrich
 import robustGP.optimisers as opt
 
 # Plotting options
-plt.style.use("seaborn")
-plt.rcParams.update(
-    {
-        "text.usetex": True,
-        "font.family": "sans-serif",
-        "font.serif": ["Computer Modern Roman"],
-        "image.cmap": "viridis",
-        "figure.figsize": [5.748031686730317, 3.552478950810724],
-        "savefig.dpi": 400,
-    }
-)
-plt.rc("text.latex", preamble=r"\usepackage{amsmath} \usepackage{amssymb}")
-graphics_folder = "/home/victor/collab_article/adaptive/figures/"
+# plt.style.use("seaborn")
+# plt.rcParams.update(
+#     {
+#         "text.usetex": True,
+#         "font.family": "sans-serif",
+#         "font.serif": ["Computer Modern Roman"],
+#         "image.cmap": "viridis",
+#         "figure.figsize": [5.748031686730317, 3.552478950810724],
+#         "savefig.dpi": 400,
+#     }
+# )
+# plt.rc("text.latex", preamble=r"\usepackage{amsmath} \usepackage{amssymb}")
+# graphics_folder = "./figures/"
 
 
 bounds = np.asarray([[0, 1], [0, 1]])
@@ -262,7 +263,7 @@ def augmented_slice_IMSE(gp, X, Xnext):
 
     def function_(arg):
         m, va = arg.predict_GPdelta(integration_points, alpha=2.0)
-        return va ** 2
+        return va**2
 
     return ac.augmented_design(gp, X, None, function_, {})
 
@@ -395,7 +396,7 @@ if __name__ == "__main__":
         mdel, vdel = mdel.reshape(50, 50), vdel.reshape(50, 50)
         m, s = arg.predict(XY, return_std=True)
         m, s = m.reshape(50, 50), s.reshape(50, 50)
-        IMSE_Z = (s ** 2).sum()
+        IMSE_Z = (s**2).sum()
         IMSE_Delta = (vdel).sum()
         pro, var = pro_var_coverage(mdel, np.sqrt(vdel))
         pro = pro.reshape(50, 50)

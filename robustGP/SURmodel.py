@@ -21,12 +21,16 @@ from tqdm import tqdm, trange
 import copy
 import os
 
-log_folder = "/home/victor/robustGP/logs"
+log_folder = os.path.join(os.getcwd(), "logs")
 
 
 class AdaptiveStrategy:
     def __init__(
-        self, bounds, function: Callable[[np.ndarray], np.ndarray], name="blank"
+        self,
+        bounds,
+        function: Callable[[np.ndarray], np.ndarray],
+        name="blank",
+        log_folder=log_folder,
     ):
         """
         Initialise an instance of an adaptive strategy
@@ -46,6 +50,7 @@ class AdaptiveStrategy:
         self.gp = None
         self.name = name
         self.diagnostic = []
+        self.log_folder = log_folder
 
     def save_gp_diag(self, diag, filename):
         to_save_dict = {"AdaptiveStrat": self.gp, "diag": diag}
@@ -238,6 +243,13 @@ class AdaptiveStrategy:
             return X[:, self.idxK], X[:, self.idxU]
 
     def get_conditional_minimiser(self, u: np.ndarray):
+        """Computes the conditional minimiser of the GP m_Z*(u)
+
+        :param u: Conditional value for the minimization
+        :type u: np.ndarray
+        :return: Optimization result
+        :rtype: OptimizationResult
+        """
         set_input = self.create_input(u)
         return opt.optimize_with_restart(
             lambda X: self.gp.predict(set_input(np.atleast_2d(X))),
@@ -246,6 +258,13 @@ class AdaptiveStrategy:
         )[2]
 
     def get_conditional_minimiser_true(self, u: np.ndarray):
+        """Computes the conditional minimiser of the GP J*(u)
+
+        :param u: Conditional value for the minimization
+        :type u: np.ndarray
+        :return: Optimization result
+        :rtype: OptimizationResult
+        """
         set_input = self.create_input(u)
         return opt.optimize_with_restart(
             lambda X: self.evaluate_function(set_input(np.atleast_2d(X))),
@@ -254,6 +273,13 @@ class AdaptiveStrategy:
         )[2]
 
     def get_predictor_conditional(self, u: np.ndarray):
+        """Get the function theta -> m(theta, u) for a specified u
+
+        :param u: Conditional value
+        :type u: np.ndarray
+        :return: Conditional function
+        :rtype: Callable
+        """
         set_input = self.create_input(u)
         return lambda X1, **kwargs: self.gp.predict(
             set_input(np.atleast_2d(X1).T), **kwargs
@@ -270,13 +296,18 @@ class AdaptiveStrategy:
         return m_s_delta_product(self, X1, X2, idx2=self.idxU, alpha=alpha, beta=beta)
 
     def save_design(self, last=True):
+        """Save design X and response Y as text file
+
+        :param last: Append only the last point of the design, defaults to True
+        :type last: bool, optional
+        """
         X = self.gp.X_train_
         y = self.gp.y_train_
         if not last:
             to_write = np.hstack((X, y.reshape(len(y), 1)))
             np.savetxt(
                 os.path.join(
-                    log_folder,
+                    self.log_folder,
                     f"{self.name}_design.txt",
                 ),
                 to_write,
@@ -285,62 +316,9 @@ class AdaptiveStrategy:
             to_write = np.hstack((X[-1].reshape(1, len(X[-1])), y[-1].reshape(1, 1)))
             with open(
                 os.path.join(
-                    log_folder,
+                    self.log_folder,
                     f"{self.name}_design.txt",
                 ),
                 "a",
             ) as design_file:
                 np.savetxt(design_file, to_write)
-
-
-if __name__ == "__main__":
-    global opt1
-
-    def callback_IMSE(admethod, i):
-        global opt1
-        global opt2
-        ax1 = plt.subplot(2, 2, 1)
-        ax1.contourf(xmg, ymg, admethod.predict(XY).reshape(20, 20))
-        ax1.scatter(admethod.gp.X_train_[:-1, 0], admethod.gp.X_train_[:-1, 1], c="b")
-        ax1.scatter(admethod.gp.X_train_[-1, 0], admethod.gp.X_train_[-1, 1], c="r")
-        ax1.set_aspect("equal")
-        ax2 = plt.subplot(2, 2, 2)
-        ax2.contourf(
-            xmg, ymg, -(admethod.enrichment.criterion(admethod, XY).reshape(20, 20))
-        )
-        ax2.set_aspect("equal")
-        opt1.append(ac.prediction_variance(admethod, int_points).mean())
-        ax3 = plt.subplot(2, 2, (3, 4))
-        ax3.plot(opt1)
-        ax3.set_yscale("log")
-        plt.savefig(f"/home/victor/robustGP/robustGP/dump/im{i:02d}.png")
-        plt.close()
-
-    # ----------------------------------------------------------------------
-    ##   ROSENBROCK
-
-    NDIM = 2
-    bounds = np.asarray([(-5, 5)] * NDIM)
-    initial_design = (
-        pyDOE.lhs(n=NDIM, samples=10 * NDIM, criterion="maximin", iterations=50) - 0.5
-    ) * 10
-    response = rosenbrock_general(initial_design)
-
-    # random_points = np.random.uniform(size=).reshape(3, 5)
-    x, y = np.linspace(-5, 5, 20), np.linspace(-5, 5, 20)
-    (XY, (xmg, ymg)) = tools.pairify((x, y))
-
-    rosen = AdaptiveStrategy(bounds, rosenbrock_general)
-
-    rosen.fit_gp(
-        initial_design,
-        rosen.evaluate_function(initial_design),
-        Matern(np.ones(NDIM) / NDIM),
-        n_restarts_optimizer=20,
-    )
-
-    EGO = enrich.OneStepEnrichment(bounds)
-    EGO.set_criterion(ac.expected_improvement, maxi=True)
-    EGO.set_optim(opt.optimize_with_restart, **{"nrestart": 50})
-    rosen.set_enrichment(EGO)
-    rosen.run(Niter=100, callback=callback)
