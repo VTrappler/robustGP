@@ -1,6 +1,10 @@
 # robustGP
 
-*WORK IN PROGRESS*
+**WORK IN PROGRESS**
+
+## Example
+
+See the [demo notebook](https://github.com/VTrappler/robustGP/blob/dev/notebooks/demo.ipynb) for an example of usage
 
 ## Overview
 
