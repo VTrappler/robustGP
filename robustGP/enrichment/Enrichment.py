@@ -31,7 +31,7 @@ class MonteCarloEnrich(InfillEnrichment):
         self.dim = dim
 
     def run(self, gp):
-        return scipy.stats.uniform.rvs(size=(1, self.dim)), "MC"
+        return scipy.stats.uniform.rvs(size=(1, self.dim)), 'MC'
 
 
 class OptimEnrichment(Enrichment):

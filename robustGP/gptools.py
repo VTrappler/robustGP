@@ -5,6 +5,7 @@
 import numpy as np
 import copy
 from robustGP.tools import construct_input
+import tqdm
 
 
 def add_points_to_design(gp, pts, evals, optimize_cov=False):
@@ -44,7 +45,7 @@ def gp_to_delta(arg, x, xstar, alpha=1.3, beta=0, return_var=False):
     if return_var:
         mean, cov = arg.predict([x, xstar], return_cov=True)
         muD, varD = mul_vec.dot(mean) - beta, mul_vec.dot(cov.dot(mul_vec.T))
-        return muD, varD, (cov[0, 0], (alpha ** 2) * cov[1, 1])
+        return muD, varD, (cov[0, 0], (alpha**2) * cov[1, 1])
     else:
         mean, cov = arg.predict([x, xstar])
         muD, varD = mul_vec.dot(mean) - beta
@@ -62,7 +63,7 @@ def gp_to_Xi(arg, x, xstar, return_var=False):
         return np.log(mean[0]) - np.log(mean[1])
 
 
-def m_s_delta(arg, X, alpha, beta):
+def m_s_delta(arg, X, alpha, beta, verbose=False):
     """Compute the mean and variance parameters of Delta_{alpha,beta}
 
     :param arg: SURstrategy
@@ -75,7 +76,12 @@ def m_s_delta(arg, X, alpha, beta):
     X1, X2 = arg.separate_input(X)
     mu = np.empty(len(X))
     var = np.empty(len(X))
-    for i, (x1, x2) in enumerate(zip(X1, X2)):
+    enum = enumerate(zip(X1, X2))
+    if verbose:
+        iterable = tqdm.tqdm(list(enum))
+    else:
+        iterable = enum
+    for i, (x1, x2) in iterable:
         set_input = arg.create_input(x2)
         x1_star = arg.get_conditional_minimiser(x2).x
         mu[i], var[i], _ = gp_to_delta(
@@ -86,6 +92,7 @@ def m_s_delta(arg, X, alpha, beta):
             beta=beta,
             return_var=True,
         )
+
         # m, s = cond_pred(x1, return_std=True)
     return mu, var
 

@@ -149,7 +149,7 @@ def PEI(arg, X):
     PEIvec = np.empty(len(X))
     for i, (x1, x2) in enumerate(zip(X1, X2)):
         threshold = np.max(
-            [arg.get_best_so_far(), arg.get_conditional_minimiser(x2).fun[0]]
+            [arg.get_best_so_far(), arg.get_conditional_minimiser(x2).fun]
         )
         cond_pred = arg.get_predictor_conditional(x2)
         m, s = cond_pred(x1, return_std=True)
