@@ -48,7 +48,7 @@ def initialize_function(
         )
     else:
         pass  # initial_design is already a set of samples
-    ada_strat = AdaptiveStrategy(bounds, function, name)
+    ada_strat = AdaptiveStrategy(bounds, function, name, log_folder=log_folder)
     ada_strat.fit_gp(
         initial_design,
         ada_strat.evaluate_function(initial_design),

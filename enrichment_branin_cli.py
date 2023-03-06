@@ -28,7 +28,7 @@ from scipy.stats import qmc
 from adaptive_article import fname
 
 NDIM = 2
-log_folder = os.path.join(os.getcwd(), "logs", "branin")
+log_folder = os.path.join("home", "logs", "branin")
 
 
 def initialize_function(function, NDIM, idxU=[1], name=None, initial_design=None):
@@ -46,7 +46,7 @@ def initialize_function(function, NDIM, idxU=[1], name=None, initial_design=None
         )
     else:
         pass  # initial_design is already a set of samples
-    ada_strat = AdaptiveStrategy(bounds, function, name)
+    ada_strat = AdaptiveStrategy(bounds, function, name, log_folder=log_folder)
     ada_strat.fit_gp(
         initial_design,
         ada_strat.evaluate_function(initial_design),
