@@ -25,14 +25,17 @@ import robustGP.enrichment.Enrichment as enrich
 import robustGP.optimisers as opt
 from scipy.stats import qmc
 
-from adaptive_article import initialize_branin, fname
+# from adaptive_article import initialize_branin, fname
 
 NDIM = 3
+log_folder = os.path.join(os.getcwd(), "logs", "hartmann")
 
 
-def initialize_function(function, NDIM, idxU=[2], name=None, initial_design=None):
+def initialize_function(
+    function, NDIM, idxU=[2], name=None, initial_design=None, save=True
+):
     """
-    Create new instance of AdaptiveStrategy of the Branin 2d function
+    Create new instance of AdaptiveStrategy of the Hartmann 3d function
     with LHS as initial design
     """
     bounds = np.asarray([(0, 1)] * NDIM)
@@ -53,7 +56,8 @@ def initialize_function(function, NDIM, idxU=[2], name=None, initial_design=None
         n_restarts_optimizer=50,
     )
     ada_strat.set_idxU(idxU, ndim=NDIM)
-    ada_strat.save_design(last=False)
+    if save:
+        ada_strat.save_design(last=False)
     return ada_strat
 
 
@@ -72,7 +76,11 @@ Niter = 50
 # hartmann = initialize_function(hartmann_3d, 3, idxU=[2], name="test")
 # branin = initialize_function(branin_2d, 2, idxU=[1])
 
-log_folder = os.path.join(os.getcwd(), "logs")
+opts = cma.CMAOptions()
+opts["bounds"] = list(zip(*bounds))
+opts["maxfevals"] = 50
+opts["verbose"] = -9
+cma_options = {"x0": np.array(0.5 * np.ones(NDIM)), "sigma0": 0.5, "options": opts}
 
 
 def callback(arg, i, freq_log=2, filename=None):
@@ -97,14 +105,8 @@ def callback(arg, i, freq_log=2, filename=None):
 
 def maxvar_exp(Niter, name):
     hartmann_maxvar = initialize_function(hartmann_3d, 3, idxU=[2], name=name)
-    opts = cma.CMAOptions()
-    opts["bounds"] = list(zip(*bounds))
-    opts["maxfevals"] = 50
-    opts["verbose"] = -9
     maximum_variance = enrich.OneStepEnrichment(bounds)
-    maximum_variance.set_optim(
-        cma.fmin2, **{"x0": np.array([0.5, 0.5, 0.5]), "sigma0": 0.5, "options": opts}
-    )
+    maximum_variance.set_optim(cma.fmin2, **cma_options)
 
     def variance(arg, X):
         return arg.predict(X, return_std=True)[1] ** 2
@@ -139,6 +141,49 @@ def monte_carlo_exp(Niter, name):
     return MC_dict
 
 
+def augmented_IMSE_exp(Niter, name):
+    hartmann_aIMSE = initialize_function(hartmann_3d, 3, idxU=[2], name=name)
+    aIMSE = enrich.OneStepEnrichment(bounds)
+    aIMSE.set_optim(
+        cma.fmin2,
+        **cma_options,
+    )
+
+    def augmented_IMSE(arg, X, scenarios, integration_points, alpha, beta=0):
+        if callable(integration_points):
+            int_points = integration_points()
+        else:
+            int_points = integration_points
+
+        def function_(arg):
+            m, va = arg.predict_GPdelta(int_points, alpha=alpha, beta=beta)
+            return va
+
+        return ac.augmented_design(arg, X, scenarios, function_, {})
+
+    aIMSE.set_criterion(
+        augmented_IMSE,
+        maxi=False,
+        scenarios=None,
+        integration_points=lambda: pyDOE.lhs(
+            3, 100, criterion="maximin", iterations=50
+        ),
+        alpha=2.0,
+        beta=0.0,
+    )  #
+
+    hartmann_aIMSE.set_enrichment(aIMSE)
+    run_diag = hartmann_aIMSE.run(
+        Niter=Niter, callback=partial(callback, filename=fname(name))
+    )
+    imse_aIMSE, imse_del_aIMSE = list(zip(*run_diag))
+    aIMSE_dict = {
+        "model": hartmann_aIMSE,
+        "logs": {"imse": imse_aIMSE, "imse_del": imse_del_aIMSE},
+    }
+    return aIMSE_dict
+
+
 def augmented_IMSE_delta_exp(Niter, name):
     hartmann_aIMSE_delta = initialize_function(hartmann_3d, 3, idxU=[2], name=name)
     opts = cma.CMAOptions()
@@ -147,7 +192,8 @@ def augmented_IMSE_delta_exp(Niter, name):
     opts["verbose"] = -9
     aIMSE_delta = enrich.OneStepEnrichment(bounds)
     aIMSE_delta.set_optim(
-        cma.fmin2, **{"x0": np.array([0.5, 0.5, 0.5]), "sigma0": 0.5, "options": opts}
+        cma.fmin2,
+        **{"x0": np.array(0.5 * np.ones(NDIM)), "sigma0": 0.5, "options": opts},
     )
 
     def augmented_IMSE_Delta(arg, X, scenarios, integration_points, alpha, beta=0):
@@ -185,18 +231,6 @@ def augmented_IMSE_delta_exp(Niter, name):
     return aIMSE_delta_dict
 
 
-def add_logs_on_axes(result_dictionary, exp_name, col, axs, lab=None, kwargs={}):
-    if lab is None:
-        lab = exp_name
-    imse = np.array(result_dictionary[exp_name]["logs"]["imse"])
-    imse = imse[~np.isnan(imse)]
-    imse_del = np.array(result_dictionary[exp_name]["logs"]["imse_del"])
-    imse_del = imse_del[~np.isnan(imse_del)]
-    axs[0].plot(imse, ".-", color=col, label=lab, **kwargs)
-    axs[1].plot(imse_del, ".-", color=col, label=lab, **kwargs)
-    return axs
-
-
 ## Make experiments
 
 if __name__ == "__main__":
@@ -216,7 +250,7 @@ if __name__ == "__main__":
         name = exp
     else:
         name = parsed_args.name
-
+    print(f"Saving logs in {log_folder}")
     for i in range(parsed_args.reps):
         if parsed_args.reps > 1:
             filename = name + f"_{i+parsed_args.offset}"
