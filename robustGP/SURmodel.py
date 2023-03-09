@@ -156,22 +156,17 @@ class AdaptiveStrategy:
         """
         return np.min(self.gp.y_train_)
 
-    def step(self) -> None:
+    def step(self, post_treatment: Callable = None) -> None:
         """Performs the acquisition step defined as self.enrichment, and add point to the design"""
-        # try:
-        # Acquisition step
-        # with tqdm(total=3, leave=False) as pbar:
-        #     pbar.set_description("Acquisition")
-        #     acq = self.enrichment.run(self)
-        #     pts = acq[0]
-        #     pbar.update(1)
-        #     # Evaluation step
-        #     self.add_points(pts, optimize_cov=True)
         acq = self.enrichment.run(self)
         pts = acq[0]
-        self.add_points(pts, optimize_cov=True)
+        if post_treatment is not None:
+            added_pts = post_treatment(pts)
+        else:
+            added_pts = pts
+        self.add_points(added_pts, optimize_cov=True)
 
-    def run(self, Niter: int, callback=None) -> List:
+    def run(self, Niter: int, callback=None, post_treatment: Callable = None) -> List:
         """Run the enrichment strategy for Niter steps
 
         :param Niter: Number of points to add iteratively
@@ -183,25 +178,13 @@ class AdaptiveStrategy:
         """
         run_diag = []
         for i in trange(Niter):
-            # with tqdm(total=3, leave=False) as pbar:
-            if True:
-                # pbar.set_description("Acquisition")
-                acq = self.enrichment.run(self)
-                pts = acq[0]
-                # pbar.update(1)
-                # Evaluation step
-                # pbar.set_description("Evaluate and add point to design")
-                self.add_points(pts, optimize_cov=True)
-                # pbar.update(2)
-                # self.step()
-                # pbar.set_description("Callback")
-                if callable(callback):
-                    diag = callback(self, i)
-                    run_diag.append(diag)
-                    # opt.append(self.get_global_minimiser().fun)
-                    # bestsofar.append(self.get_best_so_far())
-                self.diagnostic.append(run_diag)
-                # pbar.update(3)
+            self.step(post_treatment)
+            if callable(callback):
+                diag = callback(self, i)
+                run_diag.append(diag)
+                # opt.append(self.get_global_minimiser().fun)
+                # bestsofar.append(self.get_best_so_far())
+            self.diagnostic.append(run_diag)
         return run_diag
 
     def set_idxU(self, idxU: List, ndim: int = None) -> None:
@@ -292,6 +275,17 @@ class AdaptiveStrategy:
         self, X1: np.ndarray, X2: np.ndarray, alpha: float, beta: float = 0.0
     ) -> Tuple[np.ndarray, np.ndarray]:
         return m_s_delta_product(self, X1, X2, idx2=self.idxU, alpha=alpha, beta=beta)
+
+    def compare_and_adjust(self, pt, alpha):
+        sigma2Z = self.gp.predict(pt, return_std=True)[1] ** 2
+        th, u = self.separate_input(pt)
+        th_star = self.get_conditional_minimiser(u).x
+        pt_star = self.create_input(u)(th_star)
+        sigma2star = self.gp.predict(pt_star, return_std=True)[1] ** 2
+        if sigma2Z > sigma2star:
+            return pt
+        else:
+            return pt_star
 
     def save_design(self, last=True):
         """Save design X and response Y as text file

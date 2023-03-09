@@ -99,6 +99,15 @@ def callback(arg, i, freq_log=2, filename=None):
 
 
 def maxvar_exp(Niter, name):
+    """Make a maxvar experiment
+
+    :param Niter: Number of iterations
+    :type Niter: int
+    :param name: Name of experiment
+    :type name: str
+    :return: Dictionary of logs and results
+    :rtype: Dict
+    """
     branin_maxvar = initialize_function(branin_2d, 2, idxU=[1], name=name)
     opts = cma.CMAOptions()
     opts["bounds"] = list(zip(*bounds))
@@ -120,6 +129,64 @@ def maxvar_exp(Niter, name):
     imse_maxvar, imse_del_maxvar = list(zip(*run_diag))
     maxvar_dict = {
         "model": branin_maxvar,
+        "logs": {"imse": imse_maxvar, "imse_del": imse_del_maxvar},
+    }
+    return maxvar_dict
+
+
+def maxvar_delta_exp(Niter, name):
+    branin_maxvar_delta = initialize_function(branin_2d, 2, idxU=[1], name=name)
+    opts = cma.CMAOptions()
+    opts["bounds"] = list(zip(*bounds))
+    opts["maxfevals"] = 50
+    opts["verbose"] = -9
+    maximum_variance_delta = enrich.OneStepEnrichment(bounds)
+    maximum_variance_delta.set_optim(
+        cma.fmin2, **{"x0": np.array([0.5, 0.5]), "sigma0": 0.5, "options": opts}
+    )
+
+    def variance(arg, X):
+        _, va = arg.predict_GPdelta(X, alpha=2.0)
+        return va
+
+    maximum_variance_delta.set_criterion(variance, maxi=True)
+    branin_maxvar_delta.set_enrichment(maximum_variance_delta)
+    run_diag = branin_maxvar_delta.run(
+        Niter=Niter, callback=partial(callback, filename=fname(name))
+    )
+    imse_maxvar, imse_del_maxvar = list(zip(*run_diag))
+    maxvar_dict = {
+        "model": branin_maxvar_delta,
+        "logs": {"imse": imse_maxvar, "imse_del": imse_del_maxvar},
+    }
+    return maxvar_dict
+
+
+def maxvar_delta_adj_exp(Niter, name):
+    branin_maxvar_delta = initialize_function(branin_2d, 2, idxU=[1], name=name)
+    opts = cma.CMAOptions()
+    opts["bounds"] = list(zip(*bounds))
+    opts["maxfevals"] = 50
+    opts["verbose"] = -9
+    maximum_variance_delta = enrich.OneStepEnrichment(bounds)
+    maximum_variance_delta.set_optim(
+        cma.fmin2, **{"x0": np.array([0.5, 0.5]), "sigma0": 0.5, "options": opts}
+    )
+
+    def variance(arg, X):
+        _, va = arg.predict_GPdelta(X, alpha=2.0)
+        return va
+
+    maximum_variance_delta.set_criterion(variance, maxi=True)
+    branin_maxvar_delta.set_enrichment(maximum_variance_delta)
+    run_diag = branin_maxvar_delta.run(
+        Niter=Niter,
+        callback=partial(callback, filename=fname(name)),
+        post_treatment=lambda x: branin_maxvar_delta.compare_and_adjust(x, alpha=2.0),
+    )
+    imse_maxvar, imse_del_maxvar = list(zip(*run_diag))
+    maxvar_dict = {
+        "model": branin_maxvar_delta,
         "logs": {"imse": imse_maxvar, "imse_del": imse_del_maxvar},
     }
     return maxvar_dict
@@ -237,7 +304,19 @@ def augmented_IMSE_exp(Niter, name):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Make SUR experiment with branin 2D")
-    parser.add_argument("experience", type=str, help="Type of experiment to run")
+    parser.add_argument(
+        "experience",
+        type=str,
+        choice=[
+            "MC",
+            "maxvar",
+            "maxvar_Delta",
+            "maxvar_Delta_adj",
+            "aIMSE_Delta",
+            "aIMSE",
+        ],
+        help="Type of experiment to run",
+    )
     parser.add_argument("Niter", type=int, help="Number of iterations")
     parser.add_argument("--reps", default=1, type=int, help="number of replications")
     parser.add_argument(
@@ -258,11 +337,28 @@ if __name__ == "__main__":
             filename = name + f"_{i+parsed_args.offset}"
         else:
             filename = name
-        if exp == "MC":
-            monte_carlo_exp(parsed_args.Niter, filename)
-        elif exp == "maxvar":
-            maxvar_exp(parsed_args.Niter, filename)
-        elif exp == "aIMSE_Delta":
-            augmented_IMSE_delta_exp(parsed_args.Niter, filename)
-        elif exp == "aIMSE":
-            augmented_IMSE_exp(parsed_args.Niter, filename)
+
+        exp_dictionary = {
+            "MC": monte_carlo_exp,
+            "maxvar": maxvar_exp,
+            "maxvar_Delta": maxvar_delta_exp,
+            "maxvar_Delta_adj": maxvar_delta_adj_exp,
+            "aIMSE_Delta": augmented_IMSE_delta_exp,
+            "aIMSE": augmented_IMSE_exp,
+        }
+
+        # Run the experiment
+        exp_dictionary[exp](parsed_args.Niter, filename)
+
+        # if exp == "MC":
+        #     monte_carlo_exp(parsed_args.Niter, filename)
+        # elif exp == "maxvar":
+        #     maxvar_exp(parsed_args.Niter, filename)
+        # elif exp == "maxvar_Delta":
+        #     maxvar_delta_exp(parsed_args.Niter, filename)
+        # elif exp == "maxvar_Delta_adj":
+        #     maxvar_delta_adj_exp(parsed_args.Niter, filename)
+        # elif exp == "aIMSE_Delta":
+        #     augmented_IMSE_delta_exp(parsed_args.Niter, filename)
+        # elif exp == "aIMSE":
+        #     augmented_IMSE_exp(parsed_args.Niter, filename)
