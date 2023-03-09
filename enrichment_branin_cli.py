@@ -145,9 +145,13 @@ def monte_carlo_exp(Niter, name):
 def augmented_IMSE_delta_exp(Niter, name):
     branin_aIMSE_delta = initialize_function(branin_2d, 2, idxU=[1], name=name)
     aIMSE_delta = enrich.OneStepEnrichment(bounds)
+    opts = cma.CMAOptions()
+    opts["bounds"] = list(zip(*bounds))
+    opts["maxfevals"] = 50
+    opts["verbose"] = -9
     aIMSE_delta.set_optim(
         cma.fmin2,
-        **cma_options,
+        **{"x0": np.array(0.5 * np.ones(NDIM)), "sigma0": 0.5, "options": opts},
     )
 
     def augmented_IMSE_Delta(arg, X, scenarios, integration_points, alpha, beta=0):
@@ -188,10 +192,11 @@ def augmented_IMSE_delta_exp(Niter, name):
 def augmented_IMSE_exp(Niter, name):
     branin_aIMSE = initialize_function(branin_2d, 2, idxU=[1], name=name)
     aIMSE = enrich.OneStepEnrichment(bounds)
-    aIMSE.set_optim(
-        cma.fmin2,
-        **cma_options,
-    )
+    # aIMSE.set_optim(
+    #     cma.fmin2,
+    #     **cma_options,
+    # )
+    aIMSE.set_optim(None)
 
     def augmented_IMSE(arg, X, scenarios, integration_points, alpha, beta=0):
         if callable(integration_points):
@@ -249,7 +254,7 @@ if __name__ == "__main__":
         name = parsed_args.name
     print(f"Saving logs in {log_folder}")
     for i in range(parsed_args.reps):
-        if parsed_args.reps > 1:
+        if (parsed_args.reps > 1) or (parsed_args.offset > 0):
             filename = name + f"_{i+parsed_args.offset}"
         else:
             filename = name

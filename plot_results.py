@@ -108,9 +108,10 @@ if __name__ == "__main__":
     #     "aIMSE",
     # ]
     colors = {
-        "MC": "k",
-        "maxvar": "b",
-        "aIMSE": "r",
+        "MC": "C0",
+        "maxvar": "C1",
+        "aIMSE": "C2",
+        "aIMSE_Delta": "C3",
     }
 
     # while True:
@@ -131,13 +132,18 @@ if __name__ == "__main__":
             try:
                 design, logs = get_design_logs(mc, log_folder)
                 logs_dict[exp].append(logs)
-                plots_logs(logs, axs, color=colors[exp], alpha=0.1, label=label)
+                plots_logs(logs, axs, color=colors[exp], alpha=0.5, label=label)
             except FileNotFoundError:
                 pass
         print(f"{exp}, {i+1} replications")
-        # plots_logs(
-        #     np.array(logs_dict[exp]).mean(0), axs, color=colors[exp], alpha=1, label=label
-        # )
+        plots_logs(
+            np.array(logs_dict[exp]).mean(0),
+            axs,
+            color=colors[exp],
+            alpha=1,
+            linestyle=":",
+            label=f"avg {exp}",
+        )
         plt.legend()
     ymin1, ymax1 = axs[0].get_ylim()
     ymin2, ymax2 = axs[1].get_ylim()
