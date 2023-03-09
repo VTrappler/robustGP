@@ -17,7 +17,7 @@ import argparse
 
 # Imports: robustGP
 from robustGP.SURmodel import AdaptiveStrategy
-from robustGP.test_functions import hartmann_3d, branin_2d
+from robustGP.test_functions import hartmann_3d
 import robustGP.tools as tools
 import robustGP.gptools
 import robustGP.acquisition.acquisition as ac
@@ -25,10 +25,10 @@ import robustGP.enrichment.Enrichment as enrich
 import robustGP.optimisers as opt
 from scipy.stats import qmc
 
-# from adaptive_article import initialize_branin, fname
+from adaptive_article import fname
 
 NDIM = 3
-log_folder = os.path.join(os.getcwd(), "logs", "hartmann")
+log_folder = os.path.join(os.sep, "home", "logs", "hartmann")
 
 
 def initialize_function(
@@ -234,7 +234,9 @@ def augmented_IMSE_delta_exp(Niter, name):
 ## Make experiments
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Make SUR experiment")
+    parser = argparse.ArgumentParser(
+        description="Make SUR experiment with hartmann (3D)"
+    )
     parser.add_argument("experience", type=str, help="Type of experiment to run")
     parser.add_argument("Niter", type=int, help="Number of iterations")
     parser.add_argument("--reps", default=1, type=int, help="number of replications")
@@ -260,5 +262,7 @@ if __name__ == "__main__":
             monte_carlo_exp(parsed_args.Niter, filename)
         elif exp == "maxvar":
             maxvar_exp(parsed_args.Niter, filename)
-        elif exp == "aIMSE":
+        elif exp == "aIMSE_Delta":
             augmented_IMSE_delta_exp(parsed_args.Niter, filename)
+        elif exp == "aIMSE":
+            augmented_IMSE_exp(parsed_args.Niter, filename)

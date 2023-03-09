@@ -28,7 +28,7 @@ from scipy.stats import qmc
 from adaptive_article import fname
 
 NDIM = 2
-log_folder = os.path.join("home", "logs", "branin")
+log_folder = os.path.join(os.sep, "home", "logs", "branin")
 
 
 def initialize_function(function, NDIM, idxU=[1], name=None, initial_design=None):
