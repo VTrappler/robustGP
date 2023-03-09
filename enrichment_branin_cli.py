@@ -307,7 +307,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "experience",
         type=str,
-        choice=[
+        choices=[
             "MC",
             "maxvar",
             "maxvar_Delta",

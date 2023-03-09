@@ -277,6 +277,7 @@ class AdaptiveStrategy:
         return m_s_delta_product(self, X1, X2, idx2=self.idxU, alpha=alpha, beta=beta)
 
     def compare_and_adjust(self, pt, alpha):
+        pt = np.atleast_2d(pt)
         sigma2Z = self.gp.predict(pt, return_std=True)[1] ** 2
         th, u = self.separate_input(pt)
         th_star = self.get_conditional_minimiser(u).x
