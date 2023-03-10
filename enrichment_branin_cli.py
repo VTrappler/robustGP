@@ -31,7 +31,9 @@ NDIM = 2
 log_folder = os.path.join(os.sep, "home", "logs", "branin")
 
 
-def initialize_function(function, NDIM, idxU=[1], name=None, initial_design=None):
+def initialize_function(
+    function, NDIM, idxU=[1], name=None, initial_design=None, save=True
+):
     """
     Create new instance of AdaptiveStrategy of the Branin 2d function
     with LHS as initial design
@@ -54,7 +56,8 @@ def initialize_function(function, NDIM, idxU=[1], name=None, initial_design=None
         n_restarts_optimizer=50,
     )
     ada_strat.set_idxU(idxU, ndim=NDIM)
-    ada_strat.save_design(last=False)
+    if save:
+        ada_strat.save_design(last=False)
     return ada_strat
 
 
@@ -256,6 +259,52 @@ def augmented_IMSE_delta_exp(Niter, name):
     return aIMSE_delta_dict
 
 
+def augmented_IVPC_delta_exp(Niter, name):
+    branin_aIVPC_delta = initialize_function(branin_2d, 2, idxU=[1], name=name)
+    aIVPC_delta = enrich.OneStepEnrichment(bounds)
+    opts = cma.CMAOptions()
+    opts["bounds"] = list(zip(*bounds))
+    opts["maxfevals"] = 50
+    opts["verbose"] = -9
+    aIVPC_delta.set_optim(
+        cma.fmin2,
+        **{"x0": np.array(0.5 * np.ones(NDIM)), "sigma0": 0.5, "options": opts},
+    )
+
+    def augmented_IVPC_Delta(arg, X, scenarios, integration_points, alpha, beta=0):
+        if callable(integration_points):
+            int_points = integration_points()
+        else:
+            int_points = integration_points
+
+        def function_(arg):
+            m, va = arg.predict_GPdelta(int_points, alpha=alpha, beta=beta)
+            s = np.sqrt(va)
+            return ac.variance_probability_coverage((m, s), None, 0)
+
+        return ac.augmented_design(arg, X, scenarios, function_, {})
+
+    aIVPC_delta.set_criterion(
+        augmented_IVPC_Delta,
+        maxi=False,
+        scenarios=None,
+        integration_points=lambda: pyDOE.lhs(2, 10, criterion="maximin", iterations=50),
+        alpha=2.0,
+        beta=0.0,
+    )  #
+
+    branin_aIVPC_delta.set_enrichment(aIVPC_delta)
+    run_diag = branin_aIVPC_delta.run(
+        Niter=Niter, callback=partial(callback, filename=fname(name))
+    )
+    imse_aIVPC_delta, imse_del_aIVPC_delta = list(zip(*run_diag))
+    aIVPC_delta_dict = {
+        "model": branin_aIVPC_delta,
+        "logs": {"imse": imse_aIVPC_delta, "imse_del": imse_del_aIVPC_delta},
+    }
+    return aIVPC_delta_dict
+
+
 def augmented_IMSE_exp(Niter, name):
     branin_aIMSE = initialize_function(branin_2d, 2, idxU=[1], name=name)
     aIMSE = enrich.OneStepEnrichment(bounds)
@@ -345,6 +394,7 @@ if __name__ == "__main__":
             "maxvar_Delta_adj": maxvar_delta_adj_exp,
             "aIMSE_Delta": augmented_IMSE_delta_exp,
             "aIMSE": augmented_IMSE_exp,
+            "aIVPC_Delta": augmented_IVPC_delta_exp,
         }
 
         # Run the experiment
