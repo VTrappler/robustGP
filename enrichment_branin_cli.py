@@ -363,6 +363,7 @@ if __name__ == "__main__":
             "maxvar_Delta_adj",
             "aIMSE_Delta",
             "aIMSE",
+            "aIVPC_Delta",
         ],
         help="Type of experiment to run",
     )
