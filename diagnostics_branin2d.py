@@ -10,8 +10,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pyDOE
 from tqdm.rich import tqdm
-from tqdm import trange
-
+from tqdm import trange, TqdmExperimentalWarning
+import warnings
+warnings.filterwarnings("ignore", category=TqdmExperimentalWarning)
 from sklearn.gaussian_process.kernels import Matern
 
 import robustGP.tools as tools
@@ -69,7 +70,7 @@ Niter = 50
 # branin = initialize_function(branin_2d, 2, idxU=[1])
 
 
-def probability_regret(strat, nx=50, nu=100, alpha=2.0, truth=False):
+def probability_regret(strat, nx=100, nu=100, alpha=2.0, truth=False):
     if truth:
         get_cond_mini = lambda u: strat.get_conditional_minimiser_true(u)
         get_fun = lambda x_, u: strat.function(
@@ -99,18 +100,18 @@ def error_probability_regret(design_file, log_folder, nU, freq=10):
         branin_2d, NDIM, initial_design=design[:15, :NDIM], save=False
     )
     Delta_truth, optim_true = probability_regret(
-        sur_strat, nx=50, nu=nU, alpha=2.0, truth=True
+        sur_strat, nx=100, nu=nU, alpha=2.0, truth=True
     )
     prob_Delta_leq_0 = []
     norm_Jstar_iters = []
     norm_theta_star_iters = []
 
-    for npoints in range(15, 115, freq):
+    for npoints in trange(15, 115, freq):
         sur_strat = initialize_function(
             branin_2d, NDIM, initial_design=design[:npoints, :NDIM], save=False
         )
         Delta_gp, optim_gp = probability_regret(
-            sur_strat, nx=50, nu=nU, alpha=2.0, truth=False
+            sur_strat, nx=100, nu=nU, alpha=2.0, truth=False
         )
         error_prob_ = np.sum(
             ((Delta_gp < 0).mean(-1) - (Delta_truth < 0).mean(-1)) ** 2
@@ -124,7 +125,7 @@ def error_probability_regret(design_file, log_folder, nU, freq=10):
         norm_theta_star_iters.append(norm_theta_star)
         with open(
             os.path.join(f"{log_folder}", f"{design_file}_diagnostic.txt"),
-            "w+",
+            "a+",
         ) as diag_file:
             diag_file.write(
                 f"{npoints}, {error_prob_}, {norm_Jstar}, {norm_theta_star}\n"
@@ -162,7 +163,7 @@ if __name__ == "__main__":
         print(exp)
         list_files = get_experiments_files(exp, parsed_args.log_folder)
         for fi in list_files:
-            print(fi)
+            print(f"-- {fi}")
             _ = error_probability_regret(
                 fi, parsed_args.log_folder, parsed_args.nU, parsed_args.freq
             )
