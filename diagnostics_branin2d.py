@@ -144,13 +144,19 @@ def get_experiments_files(exp_name, log_folder):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Make diagnostics of SUR experiment")
-    parser.add_argument("--experience", type=str, help="Type of experiment to run")
+    parser.add_argument(
+        "-e",
+        "--exp-list",
+        nargs="+",
+        default=[],
+        help="Name of experiments",
+    )
     parser.add_argument("--log_folder", type=str, help="folder containing the logs")
     parser.add_argument("--freq", type=int, help="frequency of the diagnostics")
     parser.add_argument("--nU", type=int, help="Number of u points")
 
     parsed_args = parser.parse_args()
-    exp_list = parsed_args.experience
+    exp_list = parsed_args.exp_list
 
     for exp in exp_list:
         print(exp)
