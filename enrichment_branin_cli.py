@@ -288,7 +288,9 @@ def augmented_IVPC_delta_exp(Niter, name):
         augmented_IVPC_Delta,
         maxi=False,
         scenarios=None,
-        integration_points=lambda: pyDOE.lhs(2, 10, criterion="maximin", iterations=50),
+        integration_points=lambda: pyDOE.lhs(
+            2, 100, criterion="maximin", iterations=50
+        ),
         alpha=2.0,
         beta=0.0,
     )  #
