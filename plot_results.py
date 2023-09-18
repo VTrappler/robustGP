@@ -136,6 +136,7 @@ if __name__ == "__main__":
             except FileNotFoundError:
                 pass
         print(f"{exp}, {i+1} replications")
+        print([li.shape for li in logs_dict['aIMSE_Delta']])
         plots_logs(
             np.array(logs_dict[exp]).mean(0),
             axs,
@@ -166,7 +167,7 @@ if __name__ == "__main__":
                 if i == 0:
                     label = exp
                 else:
-                    label = None
+                    label = None 
                 try:
                     diag = get_diagnostic(exp_name, log_folder)
                     diags_dict[exp].append(diag)
